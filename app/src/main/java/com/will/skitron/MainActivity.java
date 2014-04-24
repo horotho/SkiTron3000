@@ -2,9 +2,12 @@ package com.will.skitron;
 
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothServerSocket;
 import android.bluetooth.BluetoothSocket;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
@@ -28,6 +31,7 @@ import android.widget.Toast;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.Set;
 import java.util.UUID;
@@ -36,17 +40,26 @@ import java.util.UUID;
 public class MainActivity extends ActionBarActivity
 {
 
+    private final static String CONTROLLER_MAC =  "20:13:02:19:14:01";
+
     private LocationManager locationManager;
     private LocationListener locationListener;
-    private TextView trentView, locView;
-    private ListView listView;
-    private BluetoothAdapter mBluetoothAdapter;
-    private int REQUEST_ENABLE_BT = 1;
+    private TextView trentView, locView, shits;
+    private ListView deviceListView;
+
+
+    final private int REQUEST_ENABLE_BT = 1;
+    final private int MESSAGE_READ = 2;
+
     private ArrayAdapter mArrayAdapter;
-    private ArrayList<BluetoothDevice> pairedList;
-    private Handler handler;
-    private ConnectedThread connectedThread;
-    private ConnectionThread connectionThread;
+    private ArrayList<BluetoothDevice> devices;
+    private Handler mMessageHandler;
+
+    private BluetoothAdapter mBluetoothAdapter;
+   // private ConnectedThread mBluetoothConnection;
+    private BlueSmirfSPP sppController;
+    private BlueSmirfSPP sppHUD;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState)
@@ -57,7 +70,8 @@ public class MainActivity extends ActionBarActivity
         locationManager = (LocationManager) this.getApplicationContext().getSystemService(Context.LOCATION_SERVICE);
         trentView = (TextView) this.findViewById(R.id.trentView);
         locView = (TextView) this.findViewById(R.id.locView);
-        listView = (ListView) this.findViewById(R.id.listView);
+        shits = (TextView) findViewById(R.id.textView);
+        deviceListView = (ListView) this.findViewById(R.id.listView);
         mArrayAdapter = new ArrayAdapter(this, android.R.layout.simple_list_item_1, android.R.id.text1);
         mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
 
@@ -96,98 +110,48 @@ public class MainActivity extends ActionBarActivity
         {
             Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
             startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
-        } else
-        {
-            Set<BluetoothDevice> pairedDevices = mBluetoothAdapter.getBondedDevices();
-            pairedList = new ArrayList<BluetoothDevice>();
-            pairedList.addAll(pairedDevices);
-
-            // If there are paired devices
-            if (pairedDevices.size() > 0)
-            {
-                // Loop through paired devices
-                for (BluetoothDevice device : pairedDevices)
-                {
-                    // Add the name and address to an array adapter to show in a ListView
-                    mArrayAdapter.add(device.getName() + "\n" + device.getAddress());
-                }
-            }
         }
 
-        listView.setAdapter(mArrayAdapter);
-        listView.setOnItemClickListener(new AdapterView.OnItemClickListener()
+        sppController = new BlueSmirfSPP();
+
+        mMessageHandler = new Handler()
         {
             @Override
-            public void onItemClick(AdapterView<?> parent, View view, int position, long id)
+            public void handleMessage (Message msg)
             {
-                connectionThread = new ConnectionThread(pairedList.get(position));
-                connectionThread.run();
-            }
-        });
-
-
-        handler = new Handler()
-        {
-            @Override
-            public void handleMessage(Message msg)
-            {
-                if (msg.what == 0)
+                super.handleMessage(msg);
+                switch (msg.what)
                 {
-                    Toast.makeText(getApplicationContext(), msg.getData().toString(), Toast.LENGTH_SHORT).show();
-                } else
-                {
-
+                    case MESSAGE_READ:
+                    {
+                        String data = "";
+                        data = ((byte[]) msg.obj).toString();
+                        shits.setText(data);
+                    }
                 }
             }
         };
+
     }
 
     public void red(View view)
     {
-        TextView shits = (TextView) findViewById(R.id.textView);
         shits.setText("SHITS: RED");
-
-        if (connectedThread != null)
-        {
-            byte[] message = {0x77, 0x12, 0x0};
-            connectedThread.write(message);
-        }
     }
 
     public void green(View view)
     {
-        TextView shits = (TextView) findViewById(R.id.textView);
         shits.setText("SHITS: GREEN");
-
-        if (connectedThread != null)
-        {
-            byte[] message = {0x77, 0x12, 0x1};
-            connectedThread.write(message);
-        }
     }
 
     public void teal(View view)
     {
-        TextView shits = (TextView) findViewById(R.id.textView);
         shits.setText("SHITS: TEAL");
-
-        if (connectedThread != null)
-        {
-            byte[] message = {0x77, 0x12, 0x2};
-            connectedThread.write(message);
-        }
     }
 
     public void blue(View view)
     {
-        TextView shits = (TextView) findViewById(R.id.textView);
         shits.setText("SHITS: BLUE");
-
-        if (connectedThread != null)
-        {
-            byte[] message = {'f', 'u', 'c', 'k'};
-            connectedThread.write(message);
-        }
     }
 
     public void makeToast(CharSequence input)
@@ -218,152 +182,41 @@ public class MainActivity extends ActionBarActivity
         return super.onOptionsItemSelected(item);
     }
 
-    private class ConnectionThread extends Thread
+    public void connect(View view)
     {
-        private final BluetoothSocket mmSocket;
-        private final BluetoothDevice mmDevice;
+        if(!sppController.connect(CONTROLLER_MAC))
+            makeToast("Controller not Found");
 
-        public ConnectionThread(BluetoothDevice device)
+        else
         {
-            // Use a temporary object that is later assigned to mmSocket,
-            // because mmSocket is final
-            BluetoothSocket tmp = null;
-            mmDevice = device;
-            makeToast("Starting connection thread...");
+            makeToast("Controller Connected!");
+            ReadThread readThread = new ReadThread();
+            readThread.start();
+        }
 
-            // Get a BluetoothSocket to connect with the given BluetoothDevice
-            try
-            {
-                ParcelUuid[] uuids = mmDevice.getUuids();
+//        if(!sppHUD.connect(HUD_MAC))
+//            makeToast("HUD not Found");
 
-                if (uuids.length > 0)
-                {
-                    tmp = device.createRfcommSocketToServiceRecord(uuids[0].getUuid());
-                } else
-                {
-                    tmp = device.createRfcommSocketToServiceRecord(UUID.fromString("a44f84a0-c8d9-11e3-9c1a-0800200c9a66"));
-                }
+    }
 
-            } catch (IOException e)
-            {
-            }
+    public class ReadThread extends Thread
+    {
+        public  ReadThread()
+        {
 
-            mmSocket = tmp;
         }
 
         public void run()
         {
-            // Cancel discovery because it will slow down the connection
-            mBluetoothAdapter.cancelDiscovery();
+            byte[] readVal = new byte[2];
+            int bytes;
 
-            try
+            while(true)
             {
-                // Connect the device through the socket. This will block
-                // until it succeeds or throws an exception
-                mmSocket.connect();
-            } catch (IOException connectException)
-            {
-                // Unable to connect; close the socket and get out
-                try
-                {
-                    Toast.makeText(getApplicationContext(), "Unable to connect...", Toast.LENGTH_SHORT).show();
-                    mmSocket.close();
-                } catch (IOException closeException)
-                {
-                }
-                return;
-            }
-
-            // Do work to manage the connection (in a separate thread)
-            Toast.makeText(getApplicationContext(), "Starting connected thread...", Toast.LENGTH_SHORT).show();
-            connectedThread = new ConnectedThread(mmSocket);
-        }
-
-        /**
-         * Will cancel an in-progress connection, and close the socket
-         */
-        public void cancel()
-        {
-            try
-            {
-                mmSocket.close();
-            } catch (IOException e)
-            {
+                bytes = sppController.read(readVal);
+                mMessageHandler.obtainMessage(MESSAGE_READ, bytes, -1, readVal).sendToTarget();
             }
         }
+
     }
-
-    private class ConnectedThread extends Thread
-    {
-        private final BluetoothSocket mmSocket;
-        private final InputStream mmInStream;
-        private final OutputStream mmOutStream;
-
-        private static final int MESSAGE_READ = 0;
-        private static final int MESSAGE_WRITE = 1;
-
-        public ConnectedThread(BluetoothSocket socket)
-        {
-            mmSocket = socket;
-            InputStream tmpIn = null;
-            OutputStream tmpOut = null;
-
-            // Get the input and output streams, using temp objects because
-            // member streams are final
-            try
-            {
-                tmpIn = socket.getInputStream();
-                tmpOut = socket.getOutputStream();
-            } catch (IOException e)
-            {
-            }
-
-            mmInStream = tmpIn;
-            mmOutStream = tmpOut;
-        }
-
-        public void run()
-        {
-            byte[] buffer = new byte[1024];  // buffer store for the stream
-            int bytes; // bytes returned from read()
-
-            // Keep listening to the InputStream until an exception occurs
-            while (true)
-            {
-                try
-                {
-                    // Read from the InputStream
-                    bytes = mmInStream.read(buffer);
-                    // Send the obtained bytes to the UI activity
-                    handler.obtainMessage(MESSAGE_READ, bytes, -1, buffer).sendToTarget();
-                } catch (IOException e)
-                {
-                    break;
-                }
-            }
-        }
-
-        /* Call this from the main activity to send data to the remote device */
-        public void write(byte[] bytes)
-        {
-            try
-            {
-                mmOutStream.write(bytes);
-            } catch (IOException e)
-            {
-            }
-        }
-
-        /* Call this from the main activity to shutdown the connection */
-        public void cancel()
-        {
-            try
-            {
-                mmSocket.close();
-            } catch (IOException e)
-            {
-            }
-        }
-    }
-
 }
