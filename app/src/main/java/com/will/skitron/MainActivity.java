@@ -32,6 +32,13 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
+import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
+import java.nio.DoubleBuffer;
+import java.nio.FloatBuffer;
+import java.nio.IntBuffer;
+import java.nio.LongBuffer;
+import java.nio.ShortBuffer;
 import java.util.ArrayList;
 import java.util.Set;
 import java.util.UUID;
@@ -59,6 +66,8 @@ public class MainActivity extends ActionBarActivity
    // private ConnectedThread mBluetoothConnection;
     private BlueSmirfSPP sppController;
     private BlueSmirfSPP sppHUD;
+
+    private ByteBuffer bluetoothByteBuffer;
 
 
     @Override
@@ -125,8 +134,15 @@ public class MainActivity extends ActionBarActivity
                     case MESSAGE_READ:
                     {
                         String data = "";
-                        data = ((byte[]) msg.obj).toString();
-                        shits.setText(data);
+                        String output = "";
+
+                        try
+                        {
+                            data = new String(((byte []) msg.obj), "UTF-8");
+                        }
+                        catch (UnsupportedEncodingException e) {e.printStackTrace();}
+                        output += data;
+                        shits.setText(output);
                     }
                 }
             }
@@ -137,21 +153,29 @@ public class MainActivity extends ActionBarActivity
     public void red(View view)
     {
         shits.setText("SHITS: RED");
+        String red = "RED1234#";
+        sppController.write(red.getBytes(), 0, red.getBytes().length);
     }
 
     public void green(View view)
     {
         shits.setText("SHITS: GREEN");
+        String green = "GREEN1234#";
+        sppController.write(green.getBytes(), 0, green.getBytes().length);
     }
 
     public void teal(View view)
     {
         shits.setText("SHITS: TEAL");
+        String teal = "TEAL1234#";
+        sppController.write(teal.getBytes(), 0, teal.getBytes().length);
     }
 
     public void blue(View view)
     {
         shits.setText("SHITS: BLUE");
+        String blue= "BLUE1234#";
+        sppController.write(blue.getBytes(), 0, blue.getBytes().length);
     }
 
     public void makeToast(CharSequence input)
@@ -208,7 +232,7 @@ public class MainActivity extends ActionBarActivity
 
         public void run()
         {
-            byte[] readVal = new byte[2];
+            byte[] readVal = new byte[8];
             int bytes;
 
             while(true)
