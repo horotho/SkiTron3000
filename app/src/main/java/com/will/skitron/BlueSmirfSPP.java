@@ -279,7 +279,7 @@ public class BlueSmirfSPP
 		int b = 0;
 		try
 		{
-			b = mInputStream.read(buffer, 0, buffer.length);
+			b = mInputStream.read(buffer);
             Log.d("Bytes", Integer.toString(b));
 			if(b == -1)
 			{

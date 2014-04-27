@@ -2,46 +2,32 @@ package com.will.skitron;
 
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
-import android.bluetooth.BluetoothServerSocket;
-import android.bluetooth.BluetoothSocket;
-import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
+import android.graphics.Color;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
+import android.media.AudioManager;
 import android.os.Handler;
 import android.os.Message;
-import android.os.Parcel;
-import android.os.ParcelUuid;
-import android.os.Vibrator;
+import android.provider.Telephony;
 import android.support.v7.app.ActionBarActivity;
 import android.os.Bundle;
-import android.util.Log;
+import android.telephony.PhoneStateListener;
+import android.telephony.TelephonyManager;
+import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
-import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.io.UnsupportedEncodingException;
+import java.lang.reflect.Method;
 import java.nio.ByteBuffer;
-import java.nio.CharBuffer;
-import java.nio.DoubleBuffer;
-import java.nio.FloatBuffer;
-import java.nio.IntBuffer;
-import java.nio.LongBuffer;
-import java.nio.ShortBuffer;
 import java.util.ArrayList;
-import java.util.Set;
-import java.util.UUID;
 
 
 public class MainActivity extends ActionBarActivity
@@ -54,20 +40,28 @@ public class MainActivity extends ActionBarActivity
     private TextView trentView, locView, shits;
     private ListView deviceListView;
 
+    private final int REQUEST_ENABLE_BT = 1;
+    private final int CONTROLLER_MESSAGE = 2;
 
-    final private int REQUEST_ENABLE_BT = 1;
-    final private int MESSAGE_READ = 2;
+    private final char TEAL = '3';
+    private final char RED = '2';
+    private final char GREEN = '0';
+    private final char BLUE = '1';
+
 
     private ArrayAdapter mArrayAdapter;
     private ArrayList<BluetoothDevice> devices;
     private Handler mMessageHandler;
 
     private BluetoothAdapter mBluetoothAdapter;
-   // private ConnectedThread mBluetoothConnection;
+    private TelephonyManager mTelephonyManager;
+
     private BlueSmirfSPP sppController;
     private BlueSmirfSPP sppHUD;
 
     private ByteBuffer bluetoothByteBuffer;
+
+    private AudioManager mAudioManger;
 
 
     @Override
@@ -83,6 +77,12 @@ public class MainActivity extends ActionBarActivity
         deviceListView = (ListView) this.findViewById(R.id.listView);
         mArrayAdapter = new ArrayAdapter(this, android.R.layout.simple_list_item_1, android.R.id.text1);
         mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+
+        mAudioManger = (AudioManager) this.getSystemService(Context.AUDIO_SERVICE);
+
+        mTelephonyManager = (TelephonyManager) this.getSystemService(Context.TELEPHONY_SERVICE);
+        mTelephonyManager.listen(new CallStateListener(), PhoneStateListener.LISTEN_CALL_STATE);
+
 
         locationListener = new LocationListener()
         {
@@ -131,18 +131,20 @@ public class MainActivity extends ActionBarActivity
                 super.handleMessage(msg);
                 switch (msg.what)
                 {
-                    case MESSAGE_READ:
+                    case CONTROLLER_MESSAGE:
                     {
                         String data = "";
-                        String output = "";
 
-                        try
+
+                        for(int i = 0; i < msg.arg1; i++)
                         {
-                            data = new String(((byte []) msg.obj), "UTF-8");
+                            data += (((byte []) msg.obj)[i]);
                         }
-                        catch (UnsupportedEncodingException e) {e.printStackTrace();}
-                        output += data;
-                        shits.setText(output);
+
+                        buttonPress(data.charAt(0), data.charAt(1));
+                        shits.setText(data);
+
+
                     }
                 }
             }
@@ -176,6 +178,137 @@ public class MainActivity extends ActionBarActivity
         shits.setText("SHITS: BLUE");
         String blue= "BLUE1234#";
         sppController.write(blue.getBytes(), 0, blue.getBytes().length);
+    }
+
+    public boolean buttonPress(char button, char press)
+    {
+        switch (button)
+        {
+            case(TEAL):
+            {
+                if(press == '1')
+                {
+                    volumeChange(1);
+                }
+                if(press == '2')
+                {
+
+                    break;
+                }
+                break;
+            }
+
+            case(GREEN):
+            {
+                if(press == '1')
+                {
+                    if(mTelephonyManager.getCallState() == TelephonyManager.CALL_STATE_RINGING)
+                        answerCall();
+                    else
+                        volumeChange(-1);
+                }
+                else if(press == '2')
+                {
+                    playPause();
+                    break;
+                }
+                break;
+            }
+
+            case(RED):
+            {
+                if(press == '1')
+                {
+
+                }
+                else if(press == '2')
+                {
+                    if(mTelephonyManager.getCallState() == TelephonyManager.CALL_STATE_RINGING)
+                        blockCall();
+                    if(mTelephonyManager.getCallState() == TelephonyManager.CALL_STATE_OFFHOOK)
+                        endCall();
+                    else
+                        skip("previous");
+                    break;
+                }
+                break;
+            }
+
+            case(BLUE):
+            {
+                if(press == '1')
+                {
+
+                }
+                else if(press == '2')
+                {
+                    skip("next");
+                    break;
+                }
+                break;
+            }
+        }
+        return false;
+    }
+
+    public void playPause()
+    {
+        Intent i = new Intent("com.android.music.musicservicecommand");
+        if(mAudioManger.isMusicActive())
+        {
+            i.putExtra("command", "pause");
+        }
+        else
+        {
+            i.putExtra("command", "play");
+        }
+        MainActivity.this.sendBroadcast(i);
+    }
+
+    public void volumeChange(int change)
+    {
+        int flag = 1;
+        int stream = 0;
+        if(mTelephonyManager.getCallState() == TelephonyManager.CALL_STATE_OFFHOOK)
+            stream = AudioManager.USE_DEFAULT_STREAM_TYPE;
+        else
+            stream = AudioManager.STREAM_MUSIC;
+
+        mAudioManger.adjustSuggestedStreamVolume(change, stream, flag);
+    }
+
+    public void skip(String direction)
+    {
+        Intent i = new Intent("com.android.music.musicservicecommand");
+        i.putExtra("command", direction);
+        MainActivity.this.sendBroadcast(i);
+    }
+
+    public void answerCall()
+    {
+        makeToast("Attempting to Answer");
+        Intent i = new Intent(Intent.ACTION_MEDIA_BUTTON);
+        i.putExtra(Intent.EXTRA_KEY_EVENT, new KeyEvent(KeyEvent.ACTION_UP,
+                KeyEvent.KEYCODE_HEADSETHOOK));
+        sendOrderedBroadcast(i, null);
+    }
+    
+    public void endCall()
+    {
+        makeToast("Attempting to end Call");
+        Intent i = new Intent(Intent.ACTION_MEDIA_BUTTON);
+        i.putExtra(Intent.EXTRA_KEY_EVENT, new KeyEvent(KeyEvent.ACTION_UP,
+                KeyEvent.KEYCODE_HEADSETHOOK));
+        sendOrderedBroadcast(i, null);
+    }
+
+    public void blockCall()
+    {
+        makeToast("Attempting to block Call");
+        Intent i = new Intent(Intent.ACTION_MEDIA_BUTTON);
+        i.putExtra(Intent.EXTRA_KEY_EVENT, new KeyEvent(KeyEvent.ACTION_UP,
+                KeyEvent.KEYCODE_CALL));
+        sendOrderedBroadcast(i, null);
     }
 
     public void makeToast(CharSequence input)
@@ -214,7 +347,7 @@ public class MainActivity extends ActionBarActivity
         else
         {
             makeToast("Controller Connected!");
-            ReadThread readThread = new ReadThread();
+            ReadThread readThread = new ReadThread(CONTROLLER_MESSAGE);
             readThread.start();
         }
 
@@ -225,22 +358,48 @@ public class MainActivity extends ActionBarActivity
 
     public class ReadThread extends Thread
     {
-        public  ReadThread()
+        private int DEVICE_MESSAGE;
+        public  ReadThread(int deviceType)
         {
-
+            DEVICE_MESSAGE = deviceType;
         }
 
         public void run()
         {
-            byte[] readVal = new byte[8];
+            byte[] readVal = new byte[1024];
+            int length;
             int bytes;
 
             while(true)
             {
-                bytes = sppController.read(readVal);
-                mMessageHandler.obtainMessage(MESSAGE_READ, bytes, -1, readVal).sendToTarget();
+                length = sppController.readByte();
+
+                for(int i = 0; i < length; i++)
+                {
+                    readVal[i] = (byte) (sppController.readByte());
+                }
+
+                mMessageHandler.obtainMessage(DEVICE_MESSAGE, length, -1, readVal.clone()).sendToTarget();
             }
         }
+    }
 
+    private class CallStateListener extends PhoneStateListener
+    {
+        @Override
+        public void onCallStateChanged(int state, String incomingNumber)
+        {
+            switch (state)
+            {
+                case TelephonyManager.CALL_STATE_RINGING:
+                    // called when someone is ringing to this phone
+                    makeToast("Incoming: "+ incomingNumber);
+
+                    break;
+                case TelephonyManager.CALL_STATE_OFFHOOK:
+                    makeToast("Answered");
+                    break;
+            }
+        }
     }
 }
