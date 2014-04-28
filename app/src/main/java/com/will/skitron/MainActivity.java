@@ -43,10 +43,10 @@ public class MainActivity extends ActionBarActivity
     private final int REQUEST_ENABLE_BT = 1;
     private final int CONTROLLER_MESSAGE = 2;
 
-    private final char TEAL = '3';
-    private final char RED = '2';
+    private final char TEAL = '2';
+    private final char RED = '1';
     private final char GREEN = '0';
-    private final char BLUE = '1';
+    private final char BLUE = '3';
 
 
     private ArrayAdapter mArrayAdapter;
