@@ -48,15 +48,18 @@ public class BlueSmirfSPP
 	private boolean mIsConnected;
 	private boolean mIsError;
 	private String  mBluetoothAddress;
+    private String name;
 
 	// Bluetooth state
 	private BluetoothAdapter mBluetoothAdapter;
 	private BluetoothSocket  mBluetoothSocket;
 	private OutputStream     mOutputStream;
 	private InputStream      mInputStream;
+    private MainActivity.ReadThread mReadThread;
 
-	public BlueSmirfSPP()
+	public BlueSmirfSPP(String inName)
 	{
+        name = inName;
 		mLock             = new ReentrantLock();
 		mIsConnected      = false;
 		mIsError          = false;
@@ -65,6 +68,7 @@ public class BlueSmirfSPP
 		mOutputStream     = null;
 		mInputStream      = null;
 		mBluetoothAddress = null;
+        mReadThread       = null;
 	}
 
 	public boolean connect(String addr)
@@ -328,4 +332,19 @@ public class BlueSmirfSPP
 			}
 		}
 	}
+
+    public String getName()
+    {
+        return name;
+    }
+
+    public void setReadThread(MainActivity.ReadThread thread)
+    {
+        mReadThread = thread;
+    }
+
+    public MainActivity.ReadThread getReadThread()
+    {
+        return mReadThread;
+    }
 }
