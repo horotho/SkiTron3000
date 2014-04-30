@@ -12,8 +12,8 @@ public class MusicHUDView extends BaseHUDView
     public MusicHUDView()
     {
         super("Music", Color.BLUE);
-        artist = new Text(INFO_TWO_X + 20, INFO_TWO_Y, TEXT_SIZE, "N/A", Color.rgb(58, 165, 181));
-        song = new Text(INFO_ONE_X + 10, INFO_ONE_Y, TEXT_SIZE, "N/A", Color.rgb(58, 165, 181));
+        artist = new Text(INFO_TWO_X, INFO_TWO_Y, TEXT_SIZE, "N/A", Color.rgb(58, 165, 181));
+        song = new Text(INFO_ONE_X, INFO_ONE_Y, TEXT_SIZE, "N/A", Color.rgb(58, 165, 181));
     }
 
     @Override
