@@ -46,6 +46,34 @@ public class Text extends ScreenElement
         return ret;
     }
 
+    public String updateHML(int id)
+    {
+        int red = (Color.red(color) / 8) << 11;
+        int blue = (Color.blue(color) / 8);
+        int green = (Color.green(color) / 8) << 6;
+
+        if(green != 0)
+        {
+            green = green | (0x1 << 5);
+        }
+
+        int tempColor = red | blue | green;
+
+        StringBuilder sb = new StringBuilder();
+        sb.append(Integer.toHexString(tempColor));
+        while(sb.length() < 4)
+        {
+            sb.insert(0, '0'); // pad with leading zero if needed
+        }
+
+        String hex = sb.toString();
+
+        String ret = "<t i=" + id + " s=" + size + " c=" + hex + " x=" + getScreenX()
+                + " y=" + getScreenY() + " d=\"" + getText() + "\" />";
+
+        return ret;
+    }
+
     public void setText(String text)
     {
         int size = text.length() * 5 * getSize();
