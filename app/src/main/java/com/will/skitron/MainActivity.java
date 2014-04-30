@@ -62,6 +62,7 @@ public class MainActivity extends ActionBarActivity
     private BlueSmirfSPP sppController;
     private BlueSmirfSPP sppHUD;
 
+    private CallStateListener mCallStateListener;
     private AudioManager mAudioManger;
 
     private Switch controllerSwitch;
@@ -69,7 +70,6 @@ public class MainActivity extends ActionBarActivity
     private Button connectButton;
 
     private int currentView;
-    private int previousView;
 
     private LocationHUDView geoView;
     private MusicHUDView musicView;
@@ -99,11 +99,13 @@ public class MainActivity extends ActionBarActivity
         filter.addAction("com.android.music.playbackcomplete");
         filter.addAction("com.android.music.queuechanged");
         filter.addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED);
+        filter.addAction(Intent.ACTION_NEW_OUTGOING_CALL);
 
         registerReceiver(mReceiver, filter);
 
         mTelephonyManager = (TelephonyManager) this.getSystemService(Context.TELEPHONY_SERVICE);
-        mTelephonyManager.listen(new CallStateListener(), PhoneStateListener.LISTEN_CALL_STATE);
+        mCallStateListener = new CallStateListener();
+        mTelephonyManager.listen(mCallStateListener, PhoneStateListener.LISTEN_CALL_STATE);
 
         locationListener = new LocationListener()
         {
@@ -291,26 +293,22 @@ public class MainActivity extends ActionBarActivity
     {
         if(currentView == VIEW_GEO)
         {
-            previousView = currentView;
             currentView = VIEW_MUSIC;
-
+            locationManager.removeUpdates(locationListener);
         }
         else if(currentView == VIEW_MUSIC)
         {
-            previousView = currentView;
             currentView = VIEW_GEO;
+            locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 500, 0, locationListener);
         }
 
         updateScreen(currentView);
-
     }
 
-    public void changeScreen(int view)
+    public void showCallScreen()
     {
-        previousView = currentView;
-        currentView = view;
-
-        updateScreen(currentView);
+        locationManager.removeUpdates(locationListener);
+        updateScreen(VIEW_CALL);
     }
 
     public void updateScreen(int view)
@@ -328,7 +326,6 @@ public class MainActivity extends ActionBarActivity
             case (VIEW_CALL):
                 sppHUD.write(callView.toHML().getBytes(), 0, callView.toHML().length());
                 break;
-
         }
 
     }
@@ -430,12 +427,6 @@ public class MainActivity extends ActionBarActivity
         {
             makeToast(device.getName() + " Connected!");
             ReadThread readThread = new ReadThread(type);
-            /*
-            if(device.getName() == "Controller" && !controllerSwitch.isChecked())
-                controllerSwitch.setChecked(true);
-            if(device.getName() == "HUD" && !HUDSwitch.isChecked())
-                HUDSwitch.setChecked(true);
-             */
 
             readThread.start();
             device.setReadThread(readThread);
@@ -524,6 +515,7 @@ public class MainActivity extends ActionBarActivity
     private class CallStateListener extends PhoneStateListener
     {
         boolean callState = false;
+        String outgoing = " ";
         @Override
         public void onCallStateChanged (int state, String incomingNumber)
         {
@@ -533,24 +525,31 @@ public class MainActivity extends ActionBarActivity
                     // called when someone is ringing to this phone
                     makeToast("Incoming: " + incomingNumber);
                     callView.update(getContactName(getApplicationContext(), incomingNumber), incomingNumber);
-                    changeScreen(VIEW_CALL);
-                    updateScreen(currentView);
+                    showCallScreen();
                     callState = true;
                     break;
 
                 case TelephonyManager.CALL_STATE_OFFHOOK:
                     makeToast("Answered");
-
+                    showCallScreen();
                     break;
 
                 case TelephonyManager.CALL_STATE_IDLE:
+
                     if(callState)
                     {
-                        changeScreen(previousView);
                         updateScreen(currentView);
+                        if(currentView == VIEW_GEO)
+                            locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 500, 0, locationListener);
+                        callState = false;
                     }
                     break;
             }
+        }
+
+        public void setCallState(boolean cs)
+        {
+            callState = cs;
         }
     }
 
@@ -568,6 +567,13 @@ public class MainActivity extends ActionBarActivity
                 if(sppHUD.isError() && sppHUD.isConnected())
                     disconnect(sppHUD);
             }
+            else if (Intent.ACTION_NEW_OUTGOING_CALL.equals(intent.getAction()))
+            {
+                final String originalNumber = intent.getStringExtra(Intent.EXTRA_PHONE_NUMBER);
+                callView.update(getContactName(getApplicationContext(), originalNumber), originalNumber);
+                showCallScreen();
+                mCallStateListener.setCallState(true);
+            }
             else
             {
                 String action = intent.getAction();
@@ -582,6 +588,7 @@ public class MainActivity extends ActionBarActivity
                 ((TextView)(findViewById(R.id.nameText))).setText(track);
                 ((TextView)findViewById(R.id.artistView)).setText(artist);
             }
+
 
 
         }
