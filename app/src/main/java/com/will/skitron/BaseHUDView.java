@@ -40,7 +40,7 @@ public abstract class BaseHUDView
     public BaseHUDView(String titleText, int color)
     {
         title = new Text(TITLE_X, TITLE_Y, TITLE_SIZE, titleText, color);
-        time = new Text(TIME_X, TIME_Y, TEXT_SIZE, "00:00:00", Color.WHITE);
+        time = new Text(TIME_X, TIME_Y, TEXT_SIZE, "00:00" , Color.WHITE);
     }
 
     public Text getTitle()
@@ -50,6 +50,11 @@ public abstract class BaseHUDView
 
     public Text getTime()
     {
+        Date date = new Date();
+        SimpleDateFormat format = new SimpleDateFormat("HH:mm");
+
+        time.setText(format.format(date));
+
         return time;
     }
 

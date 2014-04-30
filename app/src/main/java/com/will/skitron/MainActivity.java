@@ -23,8 +23,11 @@ import android.util.Log;
 import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.View;
+import android.widget.Button;
 import android.widget.CompoundButton;
 import android.widget.Switch;
+import android.widget.TextView;
 import android.widget.Toast;
 
 
@@ -63,12 +66,15 @@ public class MainActivity extends ActionBarActivity
 
     private Switch controllerSwitch;
     private Switch HUDSwitch;
+    private Button connectButton;
 
     private int currentView;
     private int previousView;
 
     private LocationHUDView geoView;
     private MusicHUDView musicView;
+    private CallHUDView callView;
+
 
 
     @Override
@@ -77,8 +83,11 @@ public class MainActivity extends ActionBarActivity
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        currentView = VIEW_GEO;
+
         geoView = new LocationHUDView();
         musicView = new MusicHUDView();
+        callView = new CallHUDView();
 
         locationManager = (LocationManager) this.getApplicationContext().getSystemService(Context.LOCATION_SERVICE);
         mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
@@ -101,8 +110,10 @@ public class MainActivity extends ActionBarActivity
             @Override
             public void onLocationChanged (Location location)
             {
-                geoView.update(String.valueOf(Math.round(location.getAltitude() * 3.28084)),
-                               String.valueOf(Math.round(location.getSpeed() * 2.237)) + " mph");
+                String altitude = String.valueOf(Math.round(location.getAltitude() * 3.28084)) + "feet";
+                String speed = String.valueOf(Math.round(location.getSpeed() * 2.237)) + "mph";
+
+                geoView.update(altitude, speed);
 
                 sppHUD.write(geoView.toHML().getBytes(), 0, geoView.toHML().length());
             }
@@ -139,6 +150,7 @@ public class MainActivity extends ActionBarActivity
 
         controllerSwitch = (Switch) findViewById(R.id.controllerSwitch);
         HUDSwitch = (Switch) findViewById(R.id.HUDSwitch);
+        connectButton = (Button) findViewById(R.id.connectButton);
 
         controllerSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener()
         {
@@ -166,6 +178,18 @@ public class MainActivity extends ActionBarActivity
                     sppHUD.disconnect();
                 }
 
+            }
+        });
+
+        connectButton.setOnClickListener(new View.OnClickListener()
+        {
+            @Override
+            public void onClick (View v)
+            {
+                if(!controllerSwitch.isChecked())
+                    controllerSwitch.setChecked(true);
+                if(!HUDSwitch.isChecked())
+                    HUDSwitch.setChecked(true);
             }
         });
 
@@ -265,12 +289,47 @@ public class MainActivity extends ActionBarActivity
 
     public void changeScreen()
     {
-        makeToast("Changing Screen");
-        sppHUD.write(musicView.toHML().getBytes(), 0, musicView.toHML().length());
+        if(currentView == VIEW_GEO)
+        {
+            previousView = currentView;
+            currentView = VIEW_MUSIC;
+
+        }
+        else if(currentView == VIEW_MUSIC)
+        {
+            previousView = currentView;
+            currentView = VIEW_GEO;
+        }
+
+        updateScreen(currentView);
+
     }
 
-    public void chaneScreen(int view)
+    public void changeScreen(int view)
     {
+        previousView = currentView;
+        currentView = view;
+
+        updateScreen(currentView);
+    }
+
+    public void updateScreen(int view)
+    {
+        switch (view)
+        {
+            case (VIEW_GEO):
+                sppHUD.write(geoView.toHML().getBytes(), 0, geoView.toHML().length());
+                break;
+
+            case (VIEW_MUSIC):
+                sppHUD.write(musicView.toHML().getBytes(), 0, musicView.toHML().length());
+                break;
+
+            case (VIEW_CALL):
+                sppHUD.write(callView.toHML().getBytes(), 0, callView.toHML().length());
+                break;
+
+        }
 
     }
 
@@ -327,6 +386,7 @@ public class MainActivity extends ActionBarActivity
         Intent i = new Intent(Intent.ACTION_MEDIA_BUTTON);
         i.putExtra(Intent.EXTRA_KEY_EVENT, new KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_CALL));
         sendOrderedBroadcast(i, null);
+        sendOrderedBroadcast(i, null);
     }
 
     public void makeToast (CharSequence input)
@@ -370,12 +430,17 @@ public class MainActivity extends ActionBarActivity
         {
             makeToast(device.getName() + " Connected!");
             ReadThread readThread = new ReadThread(type);
+            /*
+            if(device.getName() == "Controller" && !controllerSwitch.isChecked())
+                controllerSwitch.setChecked(true);
+            if(device.getName() == "HUD" && !HUDSwitch.isChecked())
+                HUDSwitch.setChecked(true);
+             */
+
             readThread.start();
             device.setReadThread(readThread);
+            updateScreen(currentView);
         }
-
-//        if(!sppHUD.connect(HUD_MAC))
-//            makeToast("HUD not Found");
 
     }
 
@@ -458,6 +523,7 @@ public class MainActivity extends ActionBarActivity
 
     private class CallStateListener extends PhoneStateListener
     {
+        boolean callState = false;
         @Override
         public void onCallStateChanged (int state, String incomingNumber)
         {
@@ -466,10 +532,23 @@ public class MainActivity extends ActionBarActivity
                 case TelephonyManager.CALL_STATE_RINGING:
                     // called when someone is ringing to this phone
                     makeToast("Incoming: " + incomingNumber);
-
+                    callView.update(getContactName(getApplicationContext(), incomingNumber), incomingNumber);
+                    changeScreen(VIEW_CALL);
+                    updateScreen(currentView);
+                    callState = true;
                     break;
+
                 case TelephonyManager.CALL_STATE_OFFHOOK:
                     makeToast("Answered");
+
+                    break;
+
+                case TelephonyManager.CALL_STATE_IDLE:
+                    if(callState)
+                    {
+                        changeScreen(previousView);
+                        updateScreen(currentView);
+                    }
                     break;
             }
         }
@@ -497,8 +576,11 @@ public class MainActivity extends ActionBarActivity
                 String artist = intent.getStringExtra("artist");
                 String album = intent.getStringExtra("album");
                 String track = intent.getStringExtra("track");
+
                 musicView.update(artist, track);
-                sppHUD.write(musicView.toHML().getBytes(), 0, musicView.toHML().length());
+                updateScreen(currentView);
+                ((TextView)(findViewById(R.id.nameText))).setText(track);
+                ((TextView)findViewById(R.id.artistView)).setText(artist);
             }
 
 

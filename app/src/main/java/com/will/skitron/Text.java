@@ -49,9 +49,9 @@ public class Text extends ScreenElement
     public void setText(String text)
     {
         int size = text.length() * 5 * getSize();
-        if(size > 300)
+        if(size > 250)
         {
-            this.text = text.substring(0, text.length() - (size - 300)/(5 * getSize()));
+            this.text = text.substring(0, text.length() - (size - 250)/(5 * getSize()));
         }
         else
         {
