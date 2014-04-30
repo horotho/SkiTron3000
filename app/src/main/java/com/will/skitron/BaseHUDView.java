@@ -28,9 +28,9 @@ public abstract class BaseHUDView
     public static final int TIME_Y = 210;
 
     public static final int TITLE_X = 100;
-    public static final int TITLE_Y = 0;
+    public static final int TITLE_Y = 20;
 
-    public static final int MAIN_X = 100;
+    public static final int MAIN_X = 80;
     public static final int MAIN_Y = 100;
 
     public static final int TITLE_SIZE = 3;

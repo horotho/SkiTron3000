@@ -12,7 +12,7 @@ public class CallHUDView extends BaseHUDView
 
     public CallHUDView()
     {
-        super("Call", Color.GREEN);
+        super("Incoming Call", Color.GREEN);
         caller = new Text(0, INFO_ONE_Y, TEXT_SIZE + 1, "CALLER", Color.WHITE);
         number = new Text(0, INFO_TWO_Y, TEXT_SIZE + 1, "NUMBER", Color.WHITE);
     }

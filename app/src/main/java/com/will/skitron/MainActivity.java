@@ -101,8 +101,8 @@ public class MainActivity extends ActionBarActivity
             @Override
             public void onLocationChanged (Location location)
             {
-                geoView.update(String.valueOf(location.getAltitude() * 3.28084), String.valueOf(location.getSpeed() * 2.237) + " mph",
-                               String.valueOf(location.getLatitude()), String.valueOf(location.getLongitude()));
+                geoView.update(String.valueOf(Math.round(location.getAltitude() * 3.28084)),
+                               String.valueOf(Math.round(location.getSpeed() * 2.237)) + " mph");
 
                 sppHUD.write(geoView.toHML().getBytes(), 0, geoView.toHML().length());
             }
