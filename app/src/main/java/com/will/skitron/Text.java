@@ -79,7 +79,7 @@ public class Text extends ScreenElement
         int size = text.length() * 5 * getSize();
         if(size > 250)
         {
-            this.text = text.substring(0, text.length() - (size - 250)/(5 * getSize()));
+            this.text = text.substring(0, text.length() - (size - 240)/(5 * getSize()));
         }
         else
         {

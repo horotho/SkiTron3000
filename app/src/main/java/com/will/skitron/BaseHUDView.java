@@ -15,11 +15,11 @@ public abstract class BaseHUDView
 
     private Text title, time;
 
-    public static final int INFO_ONE_X = 20;
-    public static final int INFO_ONE_Y = 60;
+    public static final int INFO_ONE_X = 30;
+    public static final int INFO_ONE_Y = 80;
 
-    public static final int INFO_TWO_X = 20;
-    public static final int INFO_TWO_Y = 120;
+    public static final int INFO_TWO_X = 30;
+    public static final int INFO_TWO_Y = 140;
 
     public static final int INFO_THREE_X = 10;
     public static final int INFO_THREE_Y = 180;

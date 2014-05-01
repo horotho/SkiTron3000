@@ -70,6 +70,7 @@ public class MainActivity extends ActionBarActivity
     private Button connectButton;
 
     private int currentView;
+    private int previousView;
 
     private LocationHUDView geoView;
     private MusicHUDView musicView;
@@ -84,6 +85,7 @@ public class MainActivity extends ActionBarActivity
         setContentView(R.layout.activity_main);
 
         currentView = VIEW_GEO;
+        previousView = 0;
 
         geoView = new LocationHUDView();
         musicView = new MusicHUDView();
@@ -120,6 +122,8 @@ public class MainActivity extends ActionBarActivity
                 //sppHUD.write(geoView.toHML().getBytes(), 0, geoView.toHML().length());
                 String newHML = geoView.updateHML(altitude, speed);
                 sppHUD.write(newHML.getBytes(), 0, newHML.length());
+                ((TextView)findViewById(R.id.speedView)).setText("Speed: " +  speed + " mph");
+                ((TextView)findViewById(R.id.altView)).setText("Altitude: " + altitude + " feet");
             }
 
             @Override
@@ -264,8 +268,6 @@ public class MainActivity extends ActionBarActivity
                 }
                 else if (press == '2')
                 {
-                    if (mTelephonyManager.getCallState() == TelephonyManager.CALL_STATE_RINGING)
-                        blockCall();
                     if (mTelephonyManager.getCallState() == TelephonyManager.CALL_STATE_OFFHOOK)
                         endCall();
                     else skip("previous");
@@ -310,7 +312,9 @@ public class MainActivity extends ActionBarActivity
     public void showCallScreen()
     {
         locationManager.removeUpdates(locationListener);
-        updateScreen(VIEW_CALL);
+        previousView = currentView;
+        currentView = VIEW_CALL;
+        updateScreen(currentView);
     }
 
     public void updateScreen(int view)
@@ -533,14 +537,16 @@ public class MainActivity extends ActionBarActivity
 
                 case TelephonyManager.CALL_STATE_OFFHOOK:
                     makeToast("Answered");
-                    showCallScreen();
+                    //showCallScreen();
                     break;
 
                 case TelephonyManager.CALL_STATE_IDLE:
 
                     if(callState)
                     {
+                        currentView = previousView;
                         updateScreen(currentView);
+
                         if(currentView == VIEW_GEO)
                             locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 500, 0, locationListener);
                         callState = false;
@@ -585,10 +591,13 @@ public class MainActivity extends ActionBarActivity
                 String album = intent.getStringExtra("album");
                 String track = intent.getStringExtra("track");
 
-                musicView.update(artist, track);
-                updateScreen(currentView);
-                ((TextView)(findViewById(R.id.nameText))).setText(track);
-                ((TextView)findViewById(R.id.artistView)).setText(artist);
+                if(artist != null && track != null)
+                {
+                    musicView.update(artist, track);
+                    updateScreen(currentView);
+                    ((TextView) (findViewById(R.id.nameText))).setText("Track: " + track);
+                    ((TextView) findViewById(R.id.artistView)).setText("Artist:" + artist);
+                }
             }
 
 
